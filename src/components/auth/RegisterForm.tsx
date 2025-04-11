@@ -1,0 +1,246 @@
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { supabase } from '../../lib/supabase';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
+
+type RegisterFormData = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
+const RegisterForm: React.FC = () => {
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<RegisterFormData>();
+  const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const router = useRouter();
+  
+  const password = watch('password');
+
+  const onSubmit = async (data: RegisterFormData) => {
+    setLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      // Регистрация пользователя в Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+          },
+        },
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      setSuccessMessage('Регистрация успешна! Пожалуйста, проверьте вашу электронную почту для подтверждения аккаунта.');
+      
+      // После 3 секунд перенаправляем на страницу входа
+      setTimeout(() => {
+        router.push('/signin');
+      }, 3000);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Ошибка при регистрации');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialSignup = async (provider: 'google' | 'apple') => {
+    setSocialLoading(provider);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/admin/dashboard`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+      // Редирект выполнит Supabase
+    } catch (error: any) {
+      setErrorMessage(error.message || `Ошибка регистрации через ${provider}`);
+      setSocialLoading(null);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md p-6 mx-auto bg-white rounded-xl shadow-sm">
+      <h1 className="mb-6 text-2xl font-medium text-center text-gray-800">Регистрация в NTMY</h1>
+      
+      {errorMessage && (
+        <div className="p-3 mb-4 text-sm text-white bg-red-500 rounded-lg">
+          {errorMessage}
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="p-3 mb-4 text-sm text-white bg-green-500 rounded-lg">
+          {successMessage}
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="mb-4">
+          <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-600">
+            Имя
+          </label>
+          <input
+            id="name"
+            type="text"
+            className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            {...register('name', { 
+              required: 'Имя обязательно',
+            })}
+          />
+          {errors.name && (
+            <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
+          )}
+        </div>
+        
+        <div className="mb-4">
+          <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-600">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            {...register('email', { 
+              required: 'Email обязателен',
+              pattern: {
+                value: /\S+@\S+\.\S+/,
+                message: 'Неверный формат email'
+              }
+            })}
+          />
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
+          )}
+        </div>
+        
+        <div className="mb-4">
+          <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-600">
+            Пароль
+          </label>
+          <input
+            id="password"
+            type="password"
+            className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            {...register('password', { 
+              required: 'Пароль обязателен',
+              minLength: {
+                value: 6,
+                message: 'Пароль должен содержать минимум 6 символов'
+              }
+            })}
+          />
+          {errors.password && (
+            <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+          )}
+        </div>
+        
+        <div className="mb-6">
+          <label htmlFor="confirmPassword" className="block mb-2 text-sm font-medium text-gray-600">
+            Подтверждение пароля
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            {...register('confirmPassword', { 
+              required: 'Подтверждение пароля обязательно',
+              validate: value => value === password || 'Пароли не совпадают'
+            })}
+          />
+          {errors.confirmPassword && (
+            <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+        
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full p-3 text-white text-sm font-medium bg-blue-500 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 transition-colors"
+        >
+          {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+        </button>
+      </form>
+      
+      <div className="flex items-center my-5">
+        <div className="flex-grow border-t border-gray-200"></div>
+        <span className="mx-4 text-xs text-gray-400">или зарегистрироваться через</span>
+        <div className="flex-grow border-t border-gray-200"></div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => handleSocialSignup('google')}
+          disabled={!!socialLoading}
+          className="flex items-center justify-center p-3 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50 transition-colors"
+        >
+          {socialLoading === 'google' ? (
+            <span>Регистрация...</span>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  fill="#4285F4"
+                  d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+                />
+              </svg>
+              <span>Google</span>
+            </>
+          )}
+        </button>
+        
+        <button
+          type="button"
+          onClick={() => handleSocialSignup('apple')}
+          disabled={!!socialLoading}
+          className="flex items-center justify-center p-3 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50 transition-colors"
+        >
+          {socialLoading === 'apple' ? (
+            <span>Регистрация...</span>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  fill="#000000"
+                  d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z"
+                />
+              </svg>
+              <span>Apple</span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      <div className="mt-6 text-center">
+        <p className="text-sm text-gray-500">
+          Уже есть аккаунт?{' '}
+          <Link href="/signin" className="text-blue-500 hover:underline">
+            Войти
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default RegisterForm; 

@@ -1,0 +1,150 @@
+import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { useForm } from 'react-hook-form';
+import { supabase } from '../lib/supabase';
+
+type ResetPasswordFormData = {
+  password: string;
+  confirmPassword: string;
+};
+
+const ResetPassword: React.FC = () => {
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<ResetPasswordFormData>();
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const router = useRouter();
+  
+  const password = watch('password');
+
+  // Проверка, что у нас есть hash в URL 
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.startsWith('#access_token=')) {
+      setMessage({
+        text: 'Неверная или истекшая ссылка для сброса пароля',
+        type: 'error'
+      });
+    }
+  }, []);
+
+  const onSubmit = async (data: ResetPasswordFormData) => {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: data.password
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage({
+        text: 'Пароль успешно изменен! Сейчас вы будете перенаправлены на страницу входа.',
+        type: 'success'
+      });
+      
+      // После 3 секунд перенаправляем на страницу входа
+      setTimeout(() => {
+        router.push('/signin');
+      }, 3000);
+    } catch (error: any) {
+      setMessage({
+        text: error.message || 'Ошибка при изменении пароля',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <Head>
+        <title>Сброс пароля | NTMY</title>
+        <meta name="description" content="Установка нового пароля для аккаунта NTMY" />
+      </Head>
+      
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <Link href="/" className="flex justify-center">
+          <span className="text-3xl font-bold text-blue-500">NTMY</span>
+        </Link>
+        <h2 className="mt-6 text-center text-2xl font-medium text-gray-800">
+          Сброс пароля
+        </h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="w-full max-w-md p-6 mx-auto bg-white rounded-xl shadow-sm">
+          {message && (
+            <div className={`p-3 mb-4 text-sm text-white ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'} rounded-lg`}>
+              {message.text}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="mb-4">
+              <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-600">
+                Новый пароль
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                {...register('password', { 
+                  required: 'Пароль обязателен',
+                  minLength: {
+                    value: 6,
+                    message: 'Пароль должен содержать минимум 6 символов'
+                  }
+                })}
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <label htmlFor="confirmPassword" className="block mb-2 text-sm font-medium text-gray-600">
+                Подтверждение пароля
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                className="w-full p-3 border rounded-lg bg-white border-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                {...register('confirmPassword', { 
+                  required: 'Подтверждение пароля обязательно',
+                  validate: value => value === password || 'Пароли не совпадают'
+                })}
+              />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading || !!message?.text}
+              className="w-full p-3 text-white text-sm font-medium bg-blue-500 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Сохранение...' : 'Сбросить пароль'}
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              <Link href="/signin" className="text-blue-500 hover:underline">
+                Вернуться на страницу входа
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ResetPassword; 

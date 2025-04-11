@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?
+  name          String?
+  username      String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  emailVerified DateTime?
+  image         String?
+
+  profiles      Profile[]
+  nfcCards      NfcCard[]
+  analyticsData AnalyticsData[]
+  followers     Follower[]
+}
+
+model Profile {
+  id          String  @id @default(uuid())
+  userId      String
+  name        String
+  role        String?
+  company     String?
+  bio         String?
+  phone       String?
+  email       String?
+  templateId  String
+  isPublished Boolean @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template    Template @relation(fields: [templateId], references: [id])
+  socialLinks SocialLink[]
+  nfcCards    NfcCard[]
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  thumbnail   String?
+  cssStyles   String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profiles    Profile[]
+}
+
+model SocialLink {
+  id        String   @id @default(uuid())
+  profileId String
+  platform  String
+  url       String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model NfcCard {
+  id        String   @id @default(uuid())
+  userId    String
+  profileId String?
+  nfcUid    String   @unique
+  isActive  Boolean  @default(true)
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile   Profile? @relation(fields: [profileId], references: [id])
+}
+
+model AnalyticsData {
+  id         String   @id @default(uuid())
+  userId     String
+  profileId  String
+  visitDate  DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+  referer    String?
+  deviceType String?
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Follower {
+  id          String   @id @default(uuid())
+  userId      String
+  followerEmail String
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+} 

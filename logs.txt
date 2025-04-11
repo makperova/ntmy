@@ -1,0 +1,43 @@
+
+> ntmy@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+ ⚠ Port 3001 is in use, trying 3002 instead.
+ ⚠ Port 3002 is in use, trying 3003 instead.
+  ▲ Next.js 14.2.26
+  - Local:        http://localhost:3003
+  - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 4.6s
+ ○ Compiling /cloudinary-test ...
+ ✓ Compiled /cloudinary-test in 3.5s (397 modules)
+ HEAD /cloudinary-test 200 in 3855ms
+ ✓ Compiled /cloudinary-signed in 380ms (401 modules)
+ HEAD /cloudinary-signed 200 in 417ms
+ ✓ Compiled /api/hello in 149ms (132 modules)
+Testing Cloudinary connection...
+Environment variables check: {
+  cloudName: 'dze0ofbrr',
+  apiKeyExists: true,
+  apiSecretExists: true,
+  apiKeyFirstChars: '4516...',
+  apiSecretFirstChars: 'qMvb...'
+}
+ HEAD /api/hello 200 in 184ms
+ ✓ Compiled /api/cloudinary-signature in 56ms (136 modules)
+ HEAD /api/cloudinary-signature 200 in 220ms
+ GET /api/cloudinary-signature 200 in 3ms
+   Reload env: .env.local
+ ✓ Compiled in 330ms (419 modules)
+ ✓ Compiled in 564ms (283 modules)
+ ✓ Compiled in 570ms (283 modules)
+ ✓ Compiled in 375ms (419 modules)
+ ✓ Compiled in 369ms (279 modules)
+ ✓ Compiled in 277ms (279 modules)
+ ✓ Compiled in 391ms (279 modules)
+ ✓ Compiled in 277ms (279 modules)
+ ✓ Compiled /api/test-cloudinary-direct in 50ms (129 modules)
+ GET /api/test-cloudinary-direct 200 in 845ms
+[?25h

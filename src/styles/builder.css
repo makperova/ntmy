@@ -1,0 +1,44 @@
+/* builder.css */
+.builder-content {
+  width: 100%;
+}
+
+/* Скрываем запасной UI, если Builder.io контент загружен */
+.builder-content .builder-blocks + .builder-fallback,
+.builder-content .builder-component + .builder-fallback,
+.builder-content .builder-block + .builder-fallback {
+  display: none;
+}
+
+/* Правило !important для особо сложных случаев */
+.builder-content:not(:empty) ~ .builder-fallback {
+  display: none !important;
+}
+
+/* Скрываем контент Builder, если он пустой, чтобы показать запасной UI */
+.builder-content:empty {
+  display: none;
+}
+
+/* Обеспечиваем видимость сообщений об ошибках */
+.builder-content .builder-error-message {
+  display: block !important;
+  padding: 20px;
+  margin: 20px 0;
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+}
+
+/* Дополнительные стили для компонентов Builder */
+.builder-component {
+  max-width: 100%;
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 768px) {
+  .builder-component {
+    padding: 0 16px;
+  }
+} 
