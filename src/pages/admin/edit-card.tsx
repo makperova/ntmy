@@ -318,8 +318,24 @@ const EditCard = () => {
         return;
       }
 
-      // Создаем объект данных карточки для сохранения
-      const cardData = {
+      // Создаем объект данных для Supabase
+      const cardData: {
+        name: string;
+        job_title: string;
+        company: string;
+        bio: string;
+        username: string;
+        email: string;
+        phone: string;
+        linkedin_url: string;
+        whatsapp_url: string;
+        telegram_url: string;
+        template: string;
+        updated_at: string;
+        image_url: any;
+        user_id: any;
+        created_at?: Date;
+      } = {
         name: formData.name,
         job_title: formData.jobTitle || '',
         company: formData.company || '',
@@ -336,42 +352,56 @@ const EditCard = () => {
         user_id: user.id
       };
       
-      let cardId = id;
-      
-      // Если карточка новая, создаем новый ID
-      if (!cardId) {
-        cardId = `new_${Date.now()}`;
+      let result;
+      try {
+        if (id) {
+          // Обновляем существующую карточку
+          console.log('Обновляем существующую карточку');
+          result = await supabase
+            .from('cards')
+            .update(cardData)
+            .eq('id', id)
+            .select();
+        } else {
+          // Создаем новую карточку
+          console.log('Создаем новую карточку');
+          cardData.user_id = user.id;
+          cardData.created_at = new Date();
+          
+          result = await supabase
+            .from('cards')
+            .insert([cardData])
+            .select();
+        }
+      } catch (error: any) {
+        console.error('Ошибка при работе с базой данных:', error);
+        throw new Error(`Ошибка при работе с базой данных: ${error.message}`);
       }
       
-      // Сохраняем данные в Supabase
-      if (id) {
-        // Обновляем существующую карточку
-        const { error: updateError } = await supabase
-          .from('cards')
-          .update(cardData)
-          .eq('id', id);
+      console.log('Результат сохранения:', result);
+      if (result.error) {
+        console.error('Ошибка при сохранении:', result.error);
+        throw result.error;
+      }
+      
+      // Если это новая карточка и есть данные в ответе, получаем ID
+      if (!id && result.data && result.data.length > 0) {
+        const newCardId = result.data[0].id;
+        console.log('Новая карточка создана с ID:', newCardId);
         
-        if (updateError) {
-          throw updateError;
-        }
+        // Перенаправляем на страницу карточки через 1.5 секунды
+        setTimeout(() => {
+          router.push(`/card/${newCardId}`);
+        }, 1500);
       } else {
-        // Создаем новую карточку
-        const { error: insertError } = await supabase
-          .from('cards')
-          .insert([cardData]);
-        
-        if (insertError) {
-          throw insertError;
-        }
+        // Перенаправляем на страницу дашборда через 1.5 секунды
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 1500);
       }
       
       setSuccess('Карточка успешно обновлена!');
       setSaving(false);
-      
-      // Перенаправляем на страницу дашборда через 1.5 секунды
-      setTimeout(() => {
-        router.push('/admin/dashboard');
-      }, 1500);
       
     } catch (error: any) {
       console.error('Error saving card:', error);
@@ -460,6 +490,94 @@ const EditCard = () => {
     }
   };
   
+  // Функция для удаления изображения профиля
+  const handleDeleteImage = () => {
+    setPreviewImage(null);
+    setImageData(null);
+  };
+  
+  // Загрузка данных карточки при наличии ID
+  useEffect(() => {
+    const fetchCardData = async () => {
+      if (!id) return;
+      
+      try {
+        setError('');
+        console.log('Loading card with ID:', id);
+        console.log('Type of ID:', typeof id);
+        
+        // Получаем строковое представление ID для работы
+        const idStr = Array.isArray(id) ? id[0] : String(id);
+        console.log('ID length:', idStr.length);
+        console.log('Is valid UUID format:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr));
+        
+        // Проверка на неправильный формат ID
+        const normalizedId = idStr.replace(/[^a-f0-9-]/gi, '');
+        if (normalizedId !== idStr) {
+          console.warn('ID was normalized from', idStr, 'to', normalizedId);
+        }
+        
+        const { data, error } = await supabase
+          .from('cards')
+          .select('*')
+          .eq('id', normalizedId)
+          .single();
+        
+        if (error) {
+          console.error('Error loading card data:', error);
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error details:', error.details);
+          
+          // Попробуем получить все карточки без использования single()
+          const { data: allCards } = await supabase
+            .from('cards')
+            .select('id')
+            .limit(10);
+          
+          console.log('Available card IDs (sample):', allCards);
+          
+          setError('Failed to load card data');
+          return;
+        }
+        
+        if (data) {
+          console.log('Loaded card data:', data);
+          console.log('Card ID from database:', data.id);
+          console.log('ID type from database:', typeof data.id);
+          
+          const newFormData: FormData = {
+            name: data.name || '',
+            username: data.username || '',
+            jobTitle: data.job_title || '',
+            company: data.company || '',
+            bio: data.bio || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            linkedin: data.linkedin_url || '',
+            telegram: data.telegram_url || '',
+            whatsapp: data.whatsapp_url || '',
+          };
+          
+          setFormData(newFormData);
+          setSelectedTemplate(data.template || 'minimal');
+          
+          // If there's an image URL, set it
+          if (data.image_url) {
+            setPreviewImage(data.image_url);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading card:', err);
+        setError('An error occurred while loading card data');
+      }
+    };
+
+    if (id) {
+      fetchCardData();
+    }
+  }, [id]);
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -481,8 +599,8 @@ const EditCard = () => {
       <div className={`${isMobile ? 'w-full pb-16' : 'ml-16 w-full'}`}>
         <div className={`${isMobile ? 'mx-auto py-6 px-4' : 'max-w-3xl mx-auto py-10 px-6'}`}>
           <div className="mb-6">
-            <h1 className="text-2xl font-medium text-gray-800">{id ? 'Редактирование карточки' : 'Создание новой карточки'}</h1>
-            <p className="text-gray-500 mt-1">Настройте свою цифровую визитку, добавьте фото и контактную информацию.</p>
+            <h1 className="text-2xl font-medium text-gray-800">{id ? 'Edit Card' : 'Create New Card'}</h1>
+            <p className="text-gray-500 mt-1">Customize your digital business card, add photo and contact information.</p>
           </div>
           
           {loading || cardLoading ? (
@@ -499,19 +617,19 @@ const EditCard = () => {
                         className={`py-3 px-4 text-sm font-medium ${activeTab === 'profile' ? 'text-blue-500 bg-blue-50 rounded-t-lg' : 'text-gray-500 hover:text-gray-700'}`}
                     onClick={() => handleTabChange('profile')}
                   >
-                    Профиль
+                    Profile
                   </button>
                   <button
                         className={`py-3 px-4 text-sm font-medium ${activeTab === 'template' ? 'text-blue-500 bg-blue-50 rounded-t-lg' : 'text-gray-500 hover:text-gray-700'}`}
                     onClick={() => handleTabChange('template')}
                   >
-                    Шаблон
+                    Template
                   </button>
                   <button
                         className={`py-3 px-4 text-sm font-medium ${activeTab === 'share' ? 'text-blue-500 bg-blue-50 rounded-t-lg' : 'text-gray-500 hover:text-gray-700'}`}
                     onClick={() => handleTabChange('share')}
                   >
-                    Публикация
+                    Share
                   </button>
                 </div>
                     <div className={`flex items-center space-x-3 ${isMobile ? 'py-3 flex-wrap' : 'py-2'}`}>
@@ -522,7 +640,7 @@ const EditCard = () => {
                           className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm mb-2 sm:mb-0"
                       disabled={saving}
                     >
-                      Удалить
+                      Delete
                     </button>
                   )}
                   
@@ -531,7 +649,7 @@ const EditCard = () => {
                     onClick={() => router.push('/admin/dashboard')}
                         className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm mb-2 sm:mb-0"
                   >
-                    Отмена
+                    Cancel
                   </button>
                   
                   <button
@@ -540,7 +658,7 @@ const EditCard = () => {
                         className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm mb-2 sm:mb-0"
                     disabled={saving}
                   >
-                    {saving ? 'Сохранение...' : 'Сохранить'}
+                    {saving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>
@@ -551,11 +669,11 @@ const EditCard = () => {
                 <div className="space-y-6">
                     {/* Profile Form */}
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Основная информация</h3>
+                      <h2 className="text-xl font-bold mb-4">Basic Information</h2>
                       
                       {/* User Photo */}
                       <div className="mb-6">
-                        <label className="mb-2 block text-sm font-medium text-gray-700">Фото профиля</label>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Profile photo</label>
                     <div className="flex items-center">
                           <div className="relative mr-6">
                             <div className="w-24 h-24 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
@@ -569,8 +687,8 @@ const EditCard = () => {
                       </div>
                           </div>
                           <div className="flex flex-col justify-center">
-                            <label className="cursor-pointer inline-flex px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                              Загрузить фото
+                            <label className="cursor-pointer inline-flex px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mb-2">
+                              Upload photo
                         <input
                           type="file"
                           className="hidden"
@@ -578,7 +696,16 @@ const EditCard = () => {
                                 onChange={handleImageChange}
                         />
                         </label>
-                            <p className="mt-2 text-xs text-gray-500">JPG, PNG или GIF, до 5MB</p>
+                            {previewImage && (
+                              <button
+                                type="button"
+                                onClick={handleDeleteImage}
+                                className="text-red-600 text-sm hover:underline mb-2"
+                              >
+                                Delete
+                              </button>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">JPG, PNG or GIF, up to 5MB</p>
                       </div>
                     </div>
                   </div>
@@ -587,7 +714,7 @@ const EditCard = () => {
                       <div className="space-y-4 mb-6">
                     <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Имя *
+                            Name *
                       </label>
                       <input
                         type="text"
@@ -595,7 +722,7 @@ const EditCard = () => {
                         value={formData.name}
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Введите ваше имя"
+                            placeholder="Enter your name"
                         required
                       />
                     </div>
@@ -618,12 +745,12 @@ const EditCard = () => {
                               required
                             />
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">Только латинские буквы в нижнем регистре, цифры, дефисы и подчеркивания</p>
+                          <p className="text-xs text-gray-500 mt-1">Only lowercase latin letters, numbers, hyphens and underscores</p>
                     </div>
 
                     <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Должность
+                            Job Title
                       </label>
                       <input
                         type="text"
@@ -631,13 +758,13 @@ const EditCard = () => {
                             value={formData.jobTitle}
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Например: Frontend Developer"
+                            placeholder="E.g., Frontend Developer"
                       />
                     </div>
 
                     <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Компания
+                            Company
                       </label>
                           <input
                             type="text"
@@ -645,48 +772,48 @@ const EditCard = () => {
                             value={formData.company}
                             onChange={handleInputChange}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Например: NTMY"
+                            placeholder="E.g., NTMY"
                           />
                     </div>
                     
                     <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            О себе
+                            About
                       </label>
                           <div className="relative">
                             <textarea
                               name="bio"
                               value={formData.bio}
                               onChange={handleInputChange}
-                              placeholder="Опишите ваш опыт и специализацию..."
+                              placeholder="Describe your experience and specialization..."
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                               rows={4}
                             />
                             <button
                               type="button"
                               onClick={() => {
-                                const keywords = window.prompt('Введите ключевые слова через запятую (например: маркетинг, SMM, дизайн)');
+                                const keywords = window.prompt('Enter keywords separated by commas (e.g., marketing, SMM, design)');
                                 if (keywords && keywords.trim()) {
                                   setBioKeywords(keywords);
                                   generateBioDescription();
                                 }
                               }}
                               className="absolute right-2 bottom-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors flex items-center"
-                              title="Сгенерировать описание с помощью AI"
+                              title="Generate description using AI"
                             >
                               <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                               </svg>
-                              {generatingBio ? 'Генерация...' : 'AI Помощник'}
+                              {generatingBio ? 'Generating...' : 'AI Assistant'}
                             </button>
                       </div>
-                          <p className="text-xs text-gray-500 mt-1">Краткое описание, которое будет отображаться на вашей карточке</p>
+                          <p className="text-xs text-gray-500 mt-1">Brief description to be displayed on your card</p>
                     </div>
                   </div>
                   
                   {/* Контактная информация */}
                       <div className="mt-8 mb-6">
-                        <h3 className="text-lg font-medium mb-4">Контактная информация</h3>
+                        <h2 className="text-xl font-bold mb-4">Contact Information</h2>
                     
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
@@ -702,7 +829,7 @@ const EditCard = () => {
                       </div>
 
                       <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                         <input
                           type="tel"
                               name="phone"
@@ -717,7 +844,7 @@ const EditCard = () => {
                   
                   {/* Социальные сети */}
                       <div className="mt-8">
-                        <h3 className="text-lg font-medium mb-4">Социальные сети</h3>
+                        <h2 className="text-xl font-bold mb-4">Social Networks</h2>
                     
                     <div className="space-y-4">
                       <div className="flex items-center">
@@ -854,7 +981,7 @@ const EditCard = () => {
       {showEditor && temporaryImage && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
-                <h3 className="text-lg font-medium mb-4">Редактирование изображения</h3>
+                <h3 className="text-lg font-medium mb-4">Edit Image</h3>
             
                 <div className="flex justify-center mb-6">
               <AvatarEditor
@@ -872,7 +999,7 @@ const EditCard = () => {
             
             <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                Масштаб
+                Scale
               </label>
               <input
                 type="range"
@@ -890,13 +1017,13 @@ const EditCard = () => {
                     onClick={handleCancelEdit}
                     className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
               >
-                Отмена
+                Cancel
               </button>
               <button
                     onClick={handleSaveImage}
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600"
                   >
-                    Сохранить
+                    Save
               </button>
             </div>
           </div>
@@ -907,9 +1034,9 @@ const EditCard = () => {
       {showDeleteConfirm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 max-w-md mx-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Подтверждение удаления</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Confirmation</h3>
             <p className="text-gray-600 mb-6">
-                  Вы действительно хотите удалить эту карточку? Это действие нельзя отменить.
+                  Are you sure you want to delete this card? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button
@@ -917,14 +1044,14 @@ const EditCard = () => {
                     className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
                 disabled={saving}
               >
-                Отмена
+                Cancel
               </button>
               <button
                     onClick={handleDelete}
                     className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                 disabled={saving}
               >
-                {saving ? 'Удаление...' : 'Удалить'}
+                {saving ? 'Deleting...' : 'Delete'}
               </button>
             </div>
               </div>

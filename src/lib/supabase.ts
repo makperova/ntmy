@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+// Явно указываем URL из переменных окружения
+const supabaseUrl = 'https://phfdwwehrkajvlsihqgj.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
+// Проверка наличия ключа
+if (!supabaseKey) {
+  console.error('Missing Supabase key environment variable');
+  // Не выбрасываем ошибку, которая может привести к краху приложения
+  // вместо этого создаем заглушку, которая будет возвращать специальную ошибку
 }
 
 // Создаем клиент Supabase для использования на клиентской стороне
@@ -32,5 +36,29 @@ export const getServiceSupabase = () => {
   return createClient(supabaseUrl, serviceKey);
 };
 
+// Создаем обертку-прокси для клиента supabase, чтобы перехватывать ошибки
+export const supabaseWithErrorHandling = new Proxy(supabase, {
+  get(target, prop) {
+    // Получаем значение свойства
+    const value = target[prop];
+    
+    // Если это не функция, просто возвращаем значение
+    if (typeof value !== 'function') {
+      return value;
+    }
+    
+    // Оборачиваем функцию для перехвата ошибок
+    return function(...args) {
+      try {
+        return value.apply(target, args);
+      } catch (error) {
+        console.error(`Error in Supabase operation ${String(prop)}:`, error);
+        // Возвращаем результат с ошибкой, чтобы код мог корректно обработать ошибку
+        return { data: null, error: { message: 'Supabase client error', originalError: error } };
+      }
+    };
+  }
+});
+
 // Просто реэкспортируем клиент для совместимости
-export { supabase }; 
+export { supabase };

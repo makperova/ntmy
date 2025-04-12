@@ -8,6 +8,9 @@ import InputDesign from '../../components/InputDesign';
 import SquareImage from '../../components/SquareImage';
 import { FiHome, FiSettings, FiBarChart2 } from 'react-icons/fi';
 
+// Убедиться, что мы используем правильный URL Supabase
+console.log('Using Supabase URL:', 'https://phfdwwehrkajvlsihqgj.supabase.co');
+
 const Dashboard: React.FC = () => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -17,6 +20,31 @@ const Dashboard: React.FC = () => {
   const [userPages, setUserPages] = useState<any[]>([]);
   const [userCards, setUserCards] = useState<any[]>([]);
   const [combinedItems, setCombinedItems] = useState<any[]>([]);
+
+  // Функция для получения корректного URL карточки
+  const getCardUrl = (item) => {
+    // Определяем базовый URL (предпочтительно из окружения или конфигурации)
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : process.env.NEXT_PUBLIC_BASE_URL || 'https://ntmy.com';
+    
+    try {
+      // Формируем URL в зависимости от типа элемента
+      if (item.type === 'card') {
+        // Для карточки формируем URL вида /card/ID
+        return `${baseUrl}/card/${item.id}`;
+      } else if (item.username) {
+        // Для профиля формируем URL вида /имя_пользователя
+        return `${baseUrl}/${item.username}`;
+      } else {
+        console.warn('Item without username or type card:', item);
+        return baseUrl;
+      }
+    } catch (err) {
+      console.error('Error generating card URL:', err, item);
+      return baseUrl;
+    }
+  };
 
   useEffect(() => {
     const checkUser = async () => {
@@ -77,6 +105,24 @@ const Dashboard: React.FC = () => {
             setUserPages([]);
           }
           
+          // Получаем информацию о структуре таблицы cards
+          console.log('Получаем информацию о структуре таблицы cards');
+          const { data: tableInfo, error: tableError } = await supabase
+            .from('cards')
+            .select('*')
+            .limit(1);
+          
+          if (tableError) {
+            console.error('Ошибка при получении структуры таблицы cards:', tableError);
+          } else {
+            console.log('Структура таблицы cards:', tableInfo);
+            if (tableInfo && tableInfo.length > 0) {
+              console.log('Поля таблицы cards:', Object.keys(tableInfo[0]));
+              console.log('Пример ID карточки:', tableInfo[0].id);
+              console.log('Тип ID:', typeof tableInfo[0].id);
+            }
+          }
+          
           // Загружаем карточки пользователя НАПРЯМУЮ по user_id
           console.log('Запрос карточек для пользователя:', session.user.id);
           const { data: cards, error: cardsError } = await supabase
@@ -96,6 +142,14 @@ const Dashboard: React.FC = () => {
             console.error('Детали ошибки:', userCardsError.message, userCardsError.details);
           } else {
             console.log('Карточки пользователя по user_id:', userCards);
+            
+            // Логируем ID карточек для проверки формата
+            if (userCards && userCards.length > 0) {
+              console.log('ID карточек пользователя:');
+              userCards.forEach((card, index) => {
+                console.log(`Карточка ${index + 1}:`, card.id, 'UUID формат:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(card.id));
+              });
+            }
             
             // Форматируем карточки для совместимости с интерфейсом
             const formattedCards = userCards ? userCards.map(card => ({
@@ -251,12 +305,14 @@ const Dashboard: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                           </svg>
                           <a 
-                            href={`https://ntmy.com/${item.username}`} 
-                            target="_blank" 
+                            href={getCardUrl(item)}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="hover:underline"
                           >
-                            ntmy.com/{item.username}
+                            {item.type === 'card' ? 
+                              `ntmy.com/card/${item.id}` : 
+                              `ntmy.com/${item.username || ''}`}
                           </a>
                         </div>
                         
@@ -273,10 +329,10 @@ const Dashboard: React.FC = () => {
                           </button>
                           
                           <a 
-                            href={`https://ntmy.com/${item.username}`}
+                            href={getCardUrl(item)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-green-500 flex items-center"
+                            className={`${actionButtonClass} text-green-600`}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -287,18 +343,20 @@ const Dashboard: React.FC = () => {
                           
                           <button 
                             onClick={() => {
+                              const shareUrl = getCardUrl(item);
+                              
                               if (navigator.share) {
                                 navigator.share({
                                   title: item.full_name,
-                                  url: `https://ntmy.com/${item.username}`
+                                  url: shareUrl
                                 }).catch(err => console.error('Error sharing:', err));
                               } else {
-                                navigator.clipboard.writeText(`https://ntmy.com/${item.username}`)
+                                navigator.clipboard.writeText(shareUrl)
                                   .then(() => alert('Link copied to clipboard!'))
                                   .catch(err => console.error('Error copying link:', err));
                               }
                             }}
-                            className="text-xs text-purple-500 flex items-center"
+                            className={`${actionButtonClass} text-purple-600`}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -464,12 +522,14 @@ const Dashboard: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                           </svg>
                           <a 
-                            href={`https://ntmy.com/${item.username}`} 
-                            target="_blank" 
+                            href={getCardUrl(item)}
+                            target="_blank"
                             rel="noopener noreferrer"
-                            className="text-gray-700 hover:underline"
+                            className="hover:underline"
                           >
-                            ntmy.com/{item.username}
+                            {item.type === 'card' ? 
+                              `ntmy.com/card/${item.id}` : 
+                              `ntmy.com/${item.username || ''}`}
                           </a>
                         </div>
                         
@@ -486,7 +546,7 @@ const Dashboard: React.FC = () => {
                           </button>
                           
                           <a 
-                            href={`https://ntmy.com/${item.username}`}
+                            href={getCardUrl(item)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={`${actionButtonClass} text-green-600`}
@@ -500,13 +560,15 @@ const Dashboard: React.FC = () => {
                           
                           <button 
                             onClick={() => {
+                              const shareUrl = getCardUrl(item);
+                              
                               if (navigator.share) {
                                 navigator.share({
                                   title: item.full_name,
-                                  url: `https://ntmy.com/${item.username}`
+                                  url: shareUrl
                                 }).catch(err => console.error('Error sharing:', err));
                               } else {
-                                navigator.clipboard.writeText(`https://ntmy.com/${item.username}`)
+                                navigator.clipboard.writeText(shareUrl)
                                   .then(() => alert('Link copied to clipboard!'))
                                   .catch(err => console.error('Error copying link:', err));
                               }
@@ -523,7 +585,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                </div>
+              </div>
             ) : (
               <div className="bg-gray-50 py-16 flex flex-col justify-center items-center rounded-xl mt-4">
                 <InputDesign />
@@ -542,4 +604,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

@@ -312,49 +312,47 @@ const SettingsPage: React.FC = () => {
         <meta name="description" content="Manage your profile settings" />
       </Head>
       
-      <aside className="w-64 bg-white shadow-md hidden md:block">
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-800">NTMY Admin</h2>
+      {/* Боковая панель */}
+      <div className="w-16 bg-white shadow-sm min-h-screen fixed left-0 top-0 bottom-0">
+        <div className="flex flex-col items-center py-8 h-full">
+          <div className="mb-12">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+              ntmy
+            </div>
+          </div>
+          
+          <div className="flex-1 flex flex-col items-center space-y-6">
+            <Link href="/admin/dashboard" className="p-2 text-gray-400 hover:text-blue-500">
+              <FiHome className="h-6 w-6" />
+            </Link>
+            
+            <Link href="/admin/analytics" className="p-2 text-gray-400 hover:text-blue-500">
+              <FiBarChart2 className="h-6 w-6" />
+            </Link>
+            
+            <Link href="/admin/settings" className="p-2 text-blue-500">
+              <FiSettings className="h-6 w-6" />
+            </Link>
+          </div>
+          
+          <div className="mt-6 mb-8">
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="Выйти"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <nav className="mt-6">
-          <Link href="/admin/dashboard">
-            <a className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600">
-              <FiHome className="h-5 w-5 mr-3" />
-              Dashboard
-            </a>
-          </Link>
-          <Link href="/admin/analytics">
-            <a className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600">
-              <FiBarChart2 className="h-5 w-5 mr-3" />
-              Analytics
-            </a>
-          </Link>
-          <Link href="/admin/settings">
-            <a className="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
-              <FiSettings className="h-5 w-5 mr-3" />
-              Settings
-            </a>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 w-full text-left"
-          >
-            <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Logout
-          </button>
-        </nav>
-      </aside>
+      </div>
       
-      <main className="flex-1 p-6">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-6">Settings</h1>
+      {/* Основной контент */}
+      <div className="ml-16 w-full">
+        <div className="max-w-3xl mx-auto py-10 px-6">
+          <h1 className="text-2xl font-medium text-gray-800 mb-6">Settings</h1>
           
           <div className="space-y-6">
             <form onSubmit={handleSubmit}>
@@ -449,7 +447,7 @@ const SettingsPage: React.FC = () => {
               </form>
             </div>
           </div>
-        </main>
+        </div>
     </div>
   );
 };

@@ -1,244 +1,232 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { supabase } from '../../lib/supabase';
 import Link from 'next/link';
-import { FiHome, FiSettings, FiBarChart2 } from 'react-icons/fi';
+import { supabase } from '../../lib/supabase';
+import { FiHome, FiBarChart2, FiSettings } from 'react-icons/fi';
 
 const Analytics: React.FC = () => {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [profileViews, setProfileViews] = useState({
-    today: 0,
-    week: 0,
-    total: 0
-  });
-
+  const [viewsData, setViewsData] = useState<any[]>([]);
+  
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          router.push('/signin');
-          return;
-        }
-        
-        setUser(session.user);
-        
-        // Здесь можно добавить загрузку данных аналитики для профиля
-        // Но пока оставим заглушку
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Ошибка при проверке пользователя:', error);
-        setLoading(false);
-      }
-    };
-    
     checkUser();
-    
-    // Определение мобильного устройства
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
+    
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [router]);
-
-  const handleLogout = async () => {
+    
+    // Загрузка данных аналитики
+    fetchAnalyticsData();
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+  
+  async function checkUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      router.push('/signin');
+    } else {
+      setLoading(false);
+    }
+  }
+  
+  async function fetchAnalyticsData() {
+    try {
+      const { data, error } = await supabase
+        .from('profile_views')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      setViewsData(data || []);
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+    }
+  }
+  
+  async function handleLogout() {
     await supabase.auth.signOut();
     router.push('/signin');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
   }
-
+  
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>;
+  }
+  
   // Мобильная версия
   if (isMobile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Head>
           <title>Analytics | NTMY</title>
-          <meta name="description" content="Track your profile analytics and statistics" />
+          <meta name="description" content="View your profile analytics" />
         </Head>
-
-        <header className="bg-white shadow-sm py-4 px-4 fixed top-0 left-0 right-0 z-10">
-          <h1 className="text-xl font-semibold text-gray-800">Analytics</h1>
-        </header>
-
-        <main className="pt-16 pb-20 px-4">
-          <div className="space-y-6">
-            {/* Profile Views Block */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <h2 className="text-xl font-medium mb-4 text-gray-800">Profile Views</h2>
-              <p className="text-gray-500 mb-6">Monitor engagement with your digital business cards.</p>
-
-              <div className="bg-gray-50 py-16 flex justify-center items-center rounded-xl mb-6">
-                <div className="text-center">
-                  <div className="text-6xl font-light text-gray-400">0</div>
-                  <p className="text-gray-400 mt-2 text-sm px-4">No view data yet. Analytics will appear here as your profiles get viewed.</p>
+        
+        {/* Заголовок */}
+        <div className="bg-white shadow-sm px-4 py-4">
+          <h1 className="text-xl font-medium text-gray-800">Analytics</h1>
+        </div>
+        
+        {/* Основной контент */}
+        <div className="px-4 py-5 pb-24">
+          <div className="space-y-5">
+            
+            {/* Блок просмотров профиля */}
+            <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200">
+              <h2 className="text-lg font-medium text-gray-800 mb-3">Profile Views</h2>
+              
+              {viewsData.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No profile views yet</p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">Today</h3>
-                  <p className="text-2xl font-medium">0</p>
+              ) : (
+                <div className="space-y-3">
+                  {viewsData.map((view) => (
+                    <div key={view.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="text-gray-800 font-medium">{view.visitor_ip || 'Unknown visitor'}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(view.created_at).toLocaleDateString()} at {new Date(view.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">Week</h3>
-                  <p className="text-2xl font-medium">0</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-xs font-medium text-gray-500 mb-1">Total</h3>
-                  <p className="text-2xl font-medium">0</p>
-                </div>
+              )}
+            </div>
+            
+            {/* Блок отчета об активности */}
+            <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200">
+              <h2 className="text-lg font-medium text-gray-800 mb-3">Engagement Report</h2>
+              
+              <div className="text-center py-8">
+                <p className="text-gray-500">Coming soon...</p>
               </div>
             </div>
-
-            {/* Engagement Report Block */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <h2 className="text-xl font-medium mb-4 text-gray-800">Engagement Report</h2>
-              <p className="text-gray-500 mb-6">Track how users interact with your profile.</p>
-
-              <div className="bg-gray-50 py-12 flex justify-center items-center rounded-xl">
-                <p className="text-gray-400 text-sm px-4">Detailed engagement reports will be available soon.</p>
-              </div>
-            </div>
+            
           </div>
-        </main>
-
-        {/* Bottom Navigation Menu */}
-        <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white shadow-lg z-10">
-          <div className="flex justify-around items-center h-16">
-            <Link href="/admin/dashboard">
-              <a className="flex flex-col items-center justify-center w-full py-2">
-                <FiHome className="h-6 w-6 text-gray-500" />
-                <span className="text-xs mt-1 text-gray-500">Home</span>
-              </a>
+        </div>
+        
+        {/* Нижнее меню навигации */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-md border-t border-gray-200 p-3">
+          <div className="flex justify-around items-center">
+            <Link href="/admin/dashboard" className="flex flex-col items-center text-gray-400">
+              <FiHome className="h-6 w-6" />
+              <span className="text-xs mt-1">Home</span>
             </Link>
-            <Link href="/admin/analytics">
-              <a className="flex flex-col items-center justify-center w-full py-2">
-                <FiBarChart2 className="h-6 w-6 text-blue-600" />
-                <span className="text-xs mt-1 text-blue-600 font-medium">Analytics</span>
-              </a>
+            
+            <Link href="/admin/analytics" className="flex flex-col items-center text-blue-500">
+              <FiBarChart2 className="h-6 w-6" />
+              <span className="text-xs mt-1">Analytics</span>
             </Link>
-            <Link href="/admin/settings">
-              <a className="flex flex-col items-center justify-center w-full py-2">
-                <FiSettings className="h-6 w-6 text-gray-500" />
-                <span className="text-xs mt-1 text-gray-500">Settings</span>
-              </a>
+            
+            <Link href="/admin/settings" className="flex flex-col items-center text-gray-400">
+              <FiSettings className="h-6 w-6" />
+              <span className="text-xs mt-1">Settings</span>
             </Link>
           </div>
         </div>
       </div>
     );
   }
-
+  
+  // Десктопная версия
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen flex bg-gray-50">
       <Head>
         <title>Analytics | NTMY</title>
-        <meta name="description" content="Analytics and statistics for your NTMY profile" />
+        <meta name="description" content="View your profile analytics" />
       </Head>
-
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md hidden md:block">
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-800">NTMY Admin</h2>
-        </div>
-        <nav className="mt-6">
-          <Link href="/admin/dashboard">
-            <a className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600">
-              <FiHome className="h-5 w-5 mr-3" />
-              Dashboard
-            </a>
-          </Link>
-          <Link href="/admin/analytics">
-            <a className="flex items-center px-6 py-3 bg-blue-50 text-blue-600 border-r-4 border-blue-600">
-              <FiBarChart2 className="h-5 w-5 mr-3" />
-              Analytics
-            </a>
-          </Link>
-          <Link href="/admin/settings">
-            <a className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600">
-              <FiSettings className="h-5 w-5 mr-3" />
-              Settings
-            </a>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 w-full text-left"
-          >
-            <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Logout
-          </button>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-6 ml-64">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-6">Analytics</h1>
-          
-          <div className="space-y-8">
-            {/* Profile Views Block */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <h2 className="text-xl font-medium mb-4 text-gray-800">Profile Views</h2>
-              <p className="text-gray-500 mb-6">Monitor engagement with your digital business cards.</p>
-
-              <div className="bg-gray-50 py-24 flex justify-center items-center rounded-xl mb-8">
-                <div className="text-center">
-                  <div className="text-7xl font-light text-gray-400">0</div>
-                  <p className="text-gray-400 mt-3 text-base px-4">No view data yet. Analytics will appear here as your profiles get viewed.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Today</h3>
-                  <p className="text-3xl font-medium">0</p>
-                </div>
-                <div className="bg-white p-5 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Week</h3>
-                  <p className="text-3xl font-medium">0</p>
-                </div>
-                <div className="bg-white p-5 rounded-xl border border-gray-200 text-center">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total</h3>
-                  <p className="text-3xl font-medium">0</p>
-                </div>
-              </div>
+      
+      {/* Боковая панель */}
+      <div className="w-16 bg-white shadow-sm min-h-screen fixed left-0 top-0 bottom-0">
+        <div className="flex flex-col items-center py-8 h-full">
+          <div className="mb-12">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+              ntmy
             </div>
-
-            {/* Engagement Report Block */}
+          </div>
+          
+          <div className="flex-1 flex flex-col items-center space-y-6">
+            <Link href="/admin/dashboard" className="p-2 text-gray-400 hover:text-blue-500">
+              <FiHome className="h-6 w-6" />
+            </Link>
+            
+            <Link href="/admin/analytics" className="p-2 text-blue-500">
+              <FiBarChart2 className="h-6 w-6" />
+            </Link>
+            
+            <Link href="/admin/settings" className="p-2 text-gray-400 hover:text-blue-500">
+              <FiSettings className="h-6 w-6" />
+            </Link>
+          </div>
+          
+          <div className="mt-6 mb-8">
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="Выйти"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Основной контент */}
+      <div className="ml-16 w-full">
+        <div className="max-w-3xl mx-auto py-10 px-6">
+          <h1 className="text-2xl font-medium text-gray-800 mb-6">Analytics</h1>
+          
+          <div className="space-y-6">
+            {/* Блок просмотров профиля */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-              <h2 className="text-xl font-medium mb-4 text-gray-800">Engagement Report</h2>
-              <p className="text-gray-500 mb-6">Track how users interact with your profile.</p>
-
-              <div className="bg-gray-50 py-16 flex justify-center items-center rounded-xl">
-                <p className="text-gray-400 text-base px-4">Detailed engagement reports will be available soon.</p>
+              <h2 className="text-xl font-medium text-gray-800 mb-4">Profile Views</h2>
+              
+              {viewsData.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-500">No profile views yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {viewsData.map((view) => (
+                    <div key={view.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="text-gray-800 font-medium">{view.visitor_ip || 'Unknown visitor'}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(view.created_at).toLocaleDateString()} at {new Date(view.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Блок отчета об активности */}
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <h2 className="text-xl font-medium text-gray-800 mb-4">Engagement Report</h2>
+              
+              <div className="text-center py-10">
+                <p className="text-gray-500">Coming soon...</p>
               </div>
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
