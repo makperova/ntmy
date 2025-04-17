@@ -148,10 +148,10 @@ const Home: React.FC = () => {
                 Попробовать бесплатно
               </Link>
               <Link 
-                href="/signup"
+                href="/create"
                 className="px-8 py-4 text-center rounded-lg text-white font-medium border border-gray-600 hover:bg-gray-800 transition-colors"
               >
-                Демо для бизнеса
+                Создать без регистрации
               </Link>
             </div>
           </div>
