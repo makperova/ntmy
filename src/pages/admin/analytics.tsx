@@ -121,17 +121,26 @@ const Analytics: React.FC = () => {
         {/* Нижнее меню навигации */}
         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-md border-t border-gray-200 p-3">
           <div className="flex justify-around items-center">
-            <Link href="/admin/dashboard" className="flex flex-col items-center text-gray-400">
+            <Link 
+              href="/admin/dashboard"
+              className="flex flex-col items-center text-gray-400"
+            >
               <FiHome className="h-6 w-6" />
               <span className="text-xs mt-1">Home</span>
             </Link>
             
-            <Link href="/admin/analytics" className="flex flex-col items-center text-blue-500">
+            <Link 
+              href="/admin/analytics"
+              className="flex flex-col items-center text-blue-500"
+            >
               <FiBarChart2 className="h-6 w-6" />
               <span className="text-xs mt-1">Analytics</span>
             </Link>
             
-            <Link href="/admin/settings" className="flex flex-col items-center text-gray-400">
+            <Link 
+              href="/admin/settings"
+              className="flex flex-col items-center text-gray-400"
+            >
               <FiSettings className="h-6 w-6" />
               <span className="text-xs mt-1">Settings</span>
             </Link>
@@ -159,15 +168,24 @@ const Analytics: React.FC = () => {
           </div>
           
           <div className="flex-1 flex flex-col items-center space-y-6">
-            <Link href="/admin/dashboard" className="p-2 text-gray-400 hover:text-blue-500">
+            <Link 
+              href="/admin/dashboard"
+              className="p-2 text-gray-400 hover:text-blue-500"
+            >
               <FiHome className="h-6 w-6" />
             </Link>
             
-            <Link href="/admin/analytics" className="p-2 text-blue-500">
+            <Link 
+              href="/admin/analytics"
+              className="p-2 text-blue-500"
+            >
               <FiBarChart2 className="h-6 w-6" />
             </Link>
             
-            <Link href="/admin/settings" className="p-2 text-gray-400 hover:text-blue-500">
+            <Link 
+              href="/admin/settings"
+              className="p-2 text-gray-400 hover:text-blue-500"
+            >
               <FiSettings className="h-6 w-6" />
             </Link>
           </div>

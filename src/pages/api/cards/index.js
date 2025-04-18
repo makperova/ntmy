@@ -78,14 +78,36 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: `Username "${cardData.username}" already exists` });
       }
       
-      // Добавляем user_id и создаем карточку
+      // Убедимся, что displayName установлен (обязательное поле)
+      if (!cardData.displayName) {
+        cardData.displayName = cardData.name;
+      }
+      
+      // Приводим username к нижнему регистру и удаляем пробелы
+      cardData.username = cardData.username.toLowerCase().trim();
+      
+      // Добавляем user_id и создаем карточку с текущей датой
       const newCard = new Card({
         ...cardData,
-        user_id: userId
+        user_id: userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       
       // Сохраняем карточку
       await newCard.save();
+      
+      // Добавляем небольшую задержку перед ответом, чтобы MongoDB успела обновить индексы
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Повторно получаем карточку из базы данных, чтобы убедиться, что она доступна
+      const savedCard = await Card.findOne({ username: cardData.username });
+      
+      if (!savedCard) {
+        console.error(`Card created but not found immediately: ${cardData.username}`);
+      } else {
+        console.log(`Card successfully created and retrieved: ${cardData.username}`);
+      }
       
       return res.status(201).json(newCard);
     } catch (error) {

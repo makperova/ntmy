@@ -15,4 +15,5 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig; 
+// Для ESM режима
+export default nextConfig; 

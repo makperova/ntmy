@@ -1,0 +1,48 @@
+Структура таблицы cards в Supabase:
+
+Согласно файлу update_schema.sql, таблица cards имеет следующую структуру:
+
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+name TEXT,
+job_title TEXT,
+company TEXT,
+bio TEXT,
+username TEXT UNIQUE,
+email TEXT,
+phone TEXT,
+linkedin_url TEXT,
+whatsapp_url TEXT,
+telegram_url TEXT,
+image_url TEXT,
+template TEXT DEFAULT 'minimal',
+view_count INTEGER DEFAULT 0,
+created_at TIMESTAMPTZ DEFAULT now(),
+updated_at TIMESTAMPTZ DEFAULT now()
+
+
+Таблица имеет включенную Row Level Security (RLS) с политиками:
+
+1. "Cards are readable by their owners"
+   - Позволяет выбирать записи только владельцу (auth.uid() = user_id)
+
+2. "Users can create their own cards"
+   - Позволяет вставлять записи только для своего пользователя (auth.uid() = user_id)
+
+3. "Users can update their own cards"
+   - Позволяет обновлять только свои карточки (auth.uid() = user_id)
+
+4. "Users can delete their own cards"
+   - Позволяет удалять только свои карточки (auth.uid() = user_id)
+
+Также настроен триггер update_cards_updated_at для автоматического обновления поля updated_at при изменении записи.
+
+Судя по текущей ситуации, политики RLS могут мешать нормальной работе с картами. Рекомендуется:
+
+1. Добавить политику для публичного чтения карточек по username:
+   CREATE POLICY "Cards are publicly readable by username" 
+   ON cards FOR SELECT 
+   USING (true);
+
+2. Или, временно для отладки, отключить RLS:
+   ALTER TABLE cards DISABLE ROW LEVEL SECURITY;

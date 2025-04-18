@@ -4,30 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://phfdwwehrkajvlsihqgj.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Убеждаемся, что ключ существует
-if (!supabaseAnonKey) {
-  console.error('Missing Supabase Anon Key. Please check your environment variables.');
-}
-
-// Создаем клиент с обработкой ошибок
-let supabaseInstance;
-
-try {
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    }
-  });
-  console.log('Supabase client initialized successfully with URL:', supabaseUrl);
-} catch (error) {
-  console.error('Failed to initialize Supabase client:', error);
-  // Создаем заглушку, чтобы предотвратить сбой приложения
-  supabaseInstance = {
+// Создаем заглушку для Supabase клиента
+const createDummyClient = () => {
+  console.warn('Создана заглушка Supabase клиента из-за отсутствия ключа');
+  return {
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: () => ({ data: null, error: { message: 'Supabase client not initialized properly' } })
+          single: () => Promise.resolve({ data: null, error: { message: 'Supabase client not initialized properly' } })
         }),
         error: { message: 'Supabase client not initialized properly' }
       }),
@@ -36,9 +20,45 @@ try {
     auth: {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
       onAuthStateChange: () => ({ data: {}, error: null }),
-      signOut: () => Promise.resolve({ error: null })
+      signOut: () => Promise.resolve({ error: null }),
+      signInWithPassword: () => Promise.resolve({ 
+        error: { message: 'Supabase аутентификация отключена. Используйте MongoDB аутентификацию.' } 
+      }),
+      signInWithOAuth: () => Promise.resolve({ 
+        error: { message: 'Supabase аутентификация отключена. Используйте MongoDB аутентификацию.' } 
+      }),
+      signUp: () => Promise.resolve({ 
+        error: { message: 'Supabase аутентификация отключена. Используйте MongoDB аутентификацию.' } 
+      }),
+      resetPasswordForEmail: () => Promise.resolve({ 
+        error: { message: 'Supabase аутентификация отключена. Используйте MongoDB аутентификацию.' } 
+      }),
+      updateUser: () => Promise.resolve({ 
+        error: { message: 'Supabase аутентификация отключена. Используйте MongoDB аутентификацию.' } 
+      })
     }
   };
+};
+
+// Создаем клиент или заглушку в зависимости от наличия ключа
+let supabaseInstance;
+
+if (!supabaseAnonKey) {
+  console.error('Missing Supabase Anon Key. Please check your environment variables.');
+  supabaseInstance = createDummyClient();
+} else {
+  try {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
+    console.log('Supabase client initialized successfully with URL:', supabaseUrl);
+  } catch (error) {
+    console.error('Failed to initialize Supabase client:', error);
+    supabaseInstance = createDummyClient();
+  }
 }
 
 export const supabase = supabaseInstance; 

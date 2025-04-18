@@ -157,6 +157,23 @@ const Home: React.FC = () => {
           </div>
         </div>
 
+        {/* После Hero секции добавляем информационное сообщение о миграции */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 my-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+            <h3 className="font-medium mb-2">Важное уведомление</h3>
+            <p className="mb-2">Система аутентификации Supabase временно отключена в связи с миграцией на новую систему.</p>
+            <div className="mt-3">
+              <p className="font-medium">Для входа используйте прямую ссылку:</p>
+              <Link 
+                href="/admin/dashboard?migrate_email=makperova@gmail.com"
+                className="mt-2 inline-block px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                Войти как makperova@gmail.com
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Изображение демонстрации */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 mb-24">
           <div className="relative mx-auto rounded-lg overflow-hidden shadow-2xl">

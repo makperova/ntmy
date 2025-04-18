@@ -285,17 +285,13 @@ const EditCard = () => {
     setTemporaryImage(null);
   };
   
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
       setSaving(true);
       setError('');
       setSuccess('');
-      
-      if (!user) {
-        setError('Пользователь не авторизован');
-        setSaving(false);
-        return;
-      }
       
       // Проверяем обязательные поля
       if (!formData.name.trim()) {
@@ -318,89 +314,121 @@ const EditCard = () => {
         return;
       }
 
-      // Создаем объект данных для Supabase
+      // Проверяем, существует ли карточка с таким username в MongoDB (только для новых карточек)
+      if (!id) {
+        console.log('Проверяем наличие карточки с username:', formData.username);
+        try {
+          const checkResponse = await fetch(`/api/cards/username/${formData.username}`);
+          
+          if (checkResponse.ok) {
+            const existingCard = await checkResponse.json();
+            if (existingCard && existingCard.user_id !== user.id) {
+              setError(`Username "${formData.username}" уже используется. Пожалуйста, выберите другой.`);
+              setSaving(false);
+              return;
+            }
+          }
+        } catch (checkError) {
+          console.warn('Ошибка при проверке существующего username:', checkError);
+          // Продолжаем выполнение, так как это некритичная ошибка
+        }
+      }
+
+      // Подготавливаем данные для MongoDB
       const cardData: {
+        user_id: any;
         name: string;
+        username: string;
+        displayName: string;
         job_title: string;
         company: string;
         bio: string;
-        username: string;
         email: string;
         phone: string;
         linkedin_url: string;
         whatsapp_url: string;
         telegram_url: string;
-        template: string;
-        updated_at: string;
         image_url: any;
-        user_id: any;
-        created_at?: Date;
+        template: string;
+        isPublic: boolean;
+        updatedAt: Date;
+        createdAt?: Date;
       } = {
+        user_id: user.id,
         name: formData.name,
+        username: formData.username.toLowerCase().trim(),
+        displayName: formData.name,
         job_title: formData.jobTitle || '',
         company: formData.company || '',
         bio: formData.bio || '',
-        username: formData.username || '',
         email: formData.email || '',
         phone: formData.phone || '',
         linkedin_url: formData.linkedin || '',
         whatsapp_url: formData.whatsapp || '',
         telegram_url: formData.telegram || '',
-        template: selectedTemplate,
-        updated_at: new Date().toISOString(),
         image_url: previewImage,
-        user_id: user.id
+        template: selectedTemplate,
+        isPublic: true,
+        updatedAt: new Date()
       };
       
-      let result;
-      try {
-        if (id) {
-          // Обновляем существующую карточку
-          console.log('Обновляем существующую карточку');
-          result = await supabase
-            .from('cards')
-            .update(cardData)
-            .eq('id', id)
-            .select();
-        } else {
-          // Создаем новую карточку
-          console.log('Создаем новую карточку');
-          cardData.user_id = user.id;
-          cardData.created_at = new Date();
-          
-          result = await supabase
-            .from('cards')
-            .insert([cardData])
-            .select();
-        }
-      } catch (error: any) {
-        console.error('Ошибка при работе с базой данных:', error);
-        throw new Error(`Ошибка при работе с базой данных: ${error.message}`);
+      // Если создаем новую карточку, добавляем дату создания
+      if (!id) {
+        cardData.createdAt = new Date();
       }
       
-      console.log('Результат сохранения:', result);
-      if (result.error) {
-        console.error('Ошибка при сохранении:', result.error);
-        throw result.error;
+      console.log('Отправляем запрос на сохранение карточки в MongoDB');
+      
+      // Определяем URL API для MongoDB
+      const mongoApiUrl = `/api/cards/${id ? `username/${formData.username}` : ''}`;
+      const method = id ? 'PUT' : 'POST';
+      
+      // Устанавливаем заголовок с user-id для API
+      const headers = {
+        'Content-Type': 'application/json',
+        'user-id': user.id
+      };
+      
+      // Отправляем запрос к MongoDB API
+      const response = await fetch(mongoApiUrl, {
+        method: method,
+        headers: headers,
+        body: JSON.stringify(cardData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`MongoDB API запрос не удался: ${response.status} ${errorText}`);
       }
       
-      // Если это новая карточка и есть данные в ответе, получаем ID
-      if (!id && result.data && result.data.length > 0) {
-        const newCardId = result.data[0].id;
-        console.log('Новая карточка создана с ID:', newCardId);
+      const result = await response.json();
+      console.log('Карточка успешно сохранена в MongoDB:', result);
+
+      // Если это новая карточка и есть данные в ответе, получаем username
+      if (!id && result) {
+        const newCardUsername = result.username;
+        console.log('Новая карточка создана с username:', newCardUsername);
         
-        // Перенаправляем на страницу карточки через 1.5 секунды
-        setTimeout(() => {
-          router.push(`/card/${newCardId}`);
-        }, 1500);
-      } else {
-        // Перенаправляем на страницу дашборда через 1.5 секунды
+        // Всегда перенаправляем на Dashboard после короткой задержки
         setTimeout(() => {
           router.push('/admin/dashboard');
         }, 1500);
+      } else if (id) {
+        // Если обновляли существующую карточку, также редирект на дашборд
+        const currentUsername = formData.username; // Получаем текущий username из формы
+        console.log(`Обновлена карточка с ID ${id}, username: ${currentUsername}`);
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 1500);
+      } else {
+         // На всякий случай, если что-то пошло не так
+         console.warn('Не удалось определить, создана или обновлена карточка, редирект на дашборд');
+         setTimeout(() => {
+           router.push('/admin/dashboard');
+         }, 1500);
       }
       
-      setSuccess('Карточка успешно обновлена!');
+      setSuccess('Карточка успешно сохранена!'); // Обновляем сообщение
       setSaving(false);
       
     } catch (error: any) {

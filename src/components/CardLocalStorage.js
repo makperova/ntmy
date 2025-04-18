@@ -1,157 +1,146 @@
 /**
- * Утилита для работы с localStorage для хранения карточек пользователей
+ * Утилиты для работы с API карточек в MongoDB
+ * 
+ * Эти функции позволяют получать данные карточек напрямую из MongoDB через API.
  */
-
-// Ключ для хранения карточек в localStorage
-const STORAGE_KEY = 'ntmy_cards';
 
 /**
- * Сохраняет карточку в localStorage
- * @param {Object} card - объект карточки пользователя
+ * Получить карточку по username из MongoDB через API
+ * 
+ * @param {string} username - Имя пользователя карточки
+ * @returns {Promise<Object|null>} - Объект карточки или null, если карточка не найдена
  */
-export const saveCardToLocalStorage = (card) => {
-  if (typeof window === 'undefined') return;
-  
+export const getCardByUsername = async (username) => {
   try {
-    // Проверяем, что карточка содержит необходимые поля
-    if (!card || !card.username) {
-      console.error('Invalid card data for local storage', card);
-      return;
+    if (!username) return null;
+    
+    const response = await fetch(`/api/cards/username/${username}`);
+    
+    if (!response.ok) {
+      console.error(`Error fetching card for username ${username}: ${response.status}`);
+      return null;
     }
     
-    // Получаем существующие карточки из localStorage
-    const existingCards = getCardsFromLocalStorage();
-    
-    // Ищем карточку с тем же username
-    const cardIndex = existingCards.findIndex(c => c.username === card.username);
-    
-    if (cardIndex >= 0) {
-      // Обновляем существующую карточку
-      existingCards[cardIndex] = {
-        ...existingCards[cardIndex],
-        ...card,
-        updated_at: new Date().toISOString()
-      };
-    } else {
-      // Добавляем новую карточку
-      existingCards.push({
-        ...card,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    // Сохраняем обновленный список карточек
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existingCards));
-    console.log('Card saved to localStorage:', card.username);
-    
-    return true;
+    const card = await response.json();
+    return card;
   } catch (error) {
-    console.error('Error saving card to localStorage:', error);
-    return false;
-  }
-};
-
-/**
- * Получает все карточки из localStorage
- * @returns {Array} массив карточек
- */
-export const getCardsFromLocalStorage = () => {
-  if (typeof window === 'undefined') return [];
-  
-  try {
-    const cardsJson = localStorage.getItem(STORAGE_KEY);
-    if (!cardsJson) return [];
-    
-    const cards = JSON.parse(cardsJson);
-    return Array.isArray(cards) ? cards : [];
-  } catch (error) {
-    console.error('Error getting cards from localStorage:', error);
-    return [];
-  }
-};
-
-/**
- * Получает карточку пользователя по username из localStorage
- * @param {string} username - имя пользователя
- * @returns {Object|null} карточка пользователя или null, если не найдена
- */
-export const getCardByUsernameFromLocalStorage = (username) => {
-  if (typeof window === 'undefined' || !username) return null;
-  
-  try {
-    const cards = getCardsFromLocalStorage();
-    return cards.find(card => card.username === username) || null;
-  } catch (error) {
-    console.error('Error getting card from localStorage:', error);
+    console.error('Error in getCardByUsername:', error);
     return null;
   }
 };
 
 /**
- * Удаляет карточку пользователя из localStorage
- * @param {string} username - имя пользователя
- * @returns {boolean} успешно ли удалена карточка
+ * Проверка наличия карточки по username на сервере MongoDB
+ * 
+ * @param {string} username - Имя пользователя карточки
+ * @returns {Promise<boolean>} - true если карточка существует, false в противном случае
  */
-export const removeCardFromLocalStorage = (username) => {
-  if (typeof window === 'undefined' || !username) return false;
-  
+export const checkCardExists = async (username) => {
   try {
-    const cards = getCardsFromLocalStorage();
-    const filteredCards = cards.filter(card => card.username !== username);
+    if (!username) return false;
     
-    if (filteredCards.length === cards.length) {
-      // Карточка не найдена
-      return false;
-    }
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredCards));
-    console.log('Card removed from localStorage:', username);
-    return true;
+    const response = await fetch(`/api/cards/username/${username}`);
+    return response.ok; // Если статус 200, значит карточка существует
   } catch (error) {
-    console.error('Error removing card from localStorage:', error);
+    console.error('Error in checkCardExists:', error);
     return false;
   }
 };
 
 /**
- * Синхронизирует локальную карточку с сервером
- * @param {string} username - имя пользователя
- * @returns {Promise<Object|null>} результат синхронизации
+ * Получить все карточки пользователя по user_id
+ * 
+ * @param {string} userId - ID пользователя
+ * @returns {Promise<Array|null>} - Массив карточек или null в случае ошибки
  */
-export const syncCardWithServer = async (username) => {
-  if (typeof window === 'undefined' || !username) return null;
-  
+export const getUserCards = async (userId) => {
   try {
-    // Получаем карточку из localStorage
-    const localCard = getCardByUsernameFromLocalStorage(username);
+    if (!userId) return null;
     
-    if (!localCard) {
-      console.log('No local card found for sync:', username);
+    const response = await fetch(`/api/cards/user/${userId}`);
+    
+    if (!response.ok) {
+      console.error(`Error fetching cards for user ${userId}: ${response.status}`);
       return null;
     }
     
-    // Отправляем карточку на сервер
-    const apiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/cards/username/${username}`;
-    const response = await fetch(apiUrl, {
+    const cards = await response.json();
+    return Array.isArray(cards) ? cards : [];
+  } catch (error) {
+    console.error('Error in getUserCards:', error);
+    return null;
+  }
+};
+
+/**
+ * Создать новую карточку в MongoDB
+ * 
+ * @param {Object} cardData - Данные карточки
+ * @returns {Promise<Object|null>} - Созданная карточка или null в случае ошибки
+ */
+export const createCard = async (cardData) => {
+  try {
+    if (!cardData || !cardData.username) {
+      console.error('Invalid card data for creation', cardData);
+      return null;
+    }
+    
+    const response = await fetch('/api/cards', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': cardData.user_id
+      },
+      body: JSON.stringify(cardData)
+    });
+    
+    if (!response.ok) {
+      console.error(`Error creating card: ${response.status}`);
+      return null;
+    }
+    
+    const card = await response.json();
+    console.log('Card created successfully:', card);
+    return card;
+  } catch (error) {
+    console.error('Error in createCard:', error);
+    return null;
+  }
+};
+
+/**
+ * Обновить существующую карточку в MongoDB
+ * 
+ * @param {string} username - Username карточки
+ * @param {Object} cardData - Новые данные карточки
+ * @returns {Promise<Object|null>} - Обновленная карточка или null в случае ошибки
+ */
+export const updateCard = async (username, cardData) => {
+  try {
+    if (!username || !cardData) {
+      console.error('Invalid data for card update', { username, cardData });
+      return null;
+    }
+    
+    const response = await fetch(`/api/cards/username/${username}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        'user-id': cardData.user_id
       },
-      body: JSON.stringify(localCard),
+      body: JSON.stringify(cardData)
     });
     
-    const data = await response.json();
-    
     if (!response.ok) {
-      console.error('Error syncing card with server:', data);
+      console.error(`Error updating card: ${response.status}`);
       return null;
     }
     
-    console.log('Card synced with server:', username);
-    return data;
+    const card = await response.json();
+    console.log('Card updated successfully:', card);
+    return card;
   } catch (error) {
-    console.error('Error syncing card with server:', error);
+    console.error('Error in updateCard:', error);
     return null;
   }
 }; 
